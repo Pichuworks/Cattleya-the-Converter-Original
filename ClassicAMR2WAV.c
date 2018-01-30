@@ -136,3 +136,70 @@ int readOrdinaryFrame(FILE *file_amr, unsigned char frame_buffer[], int std_fram
  
     return 1;
 }
+
+/**
+ * 将经典AMR转换成WAV
+ * @param   AMR文件名，WAV文件名
+ * @return  帧计数
+ */
+int classicAMR2WAV(const char *AMR_filename, const char *WAV_filename) {
+    FILE *amr_file = NULL;
+    FILE *wav_file = NULL;
+    char magic[8];
+    int *destate;           // ?
+    int frame_counter = 0;
+    int std_frame_size;
+    unsigned char std_frame_header;
+ 
+    unsigned char amr_frame[MAX_AMR_FRAME_SIZE];
+    short wav_frame[WAV_FRAME_SIZE];
+ 
+    amr_file = fopen(AMR_filename, "rb");
+    if(amr_file==NULL) return 0;
+ 
+    // 检查amr文件头
+    fread(magic, sizeof(char), strlen(AMR_MAGIC_NUMBER), amr_file);
+    if(strncmp(magic, AMR_MAGIC_NUMBER, strlen(AMR_MAGIC_NUMBER))) {
+        fclose(amr_file);
+        return 0;
+    }
+ 
+    // 创建并初始化WAV文件
+    wav_file = fopen(WAV_filename, "wb");
+    WAVFileHeaderWriter(wav_file, frame_counter);
+ 
+    // 初始化解码器
+    destate = Decoder_Interface_init();             // ?
+ 
+    // 读首帧作为参考帧
+    memset(amr_frame, 0, sizeof(amr_frame));
+    memset(wav_frame, 0, sizeof(wav_frame));
+    readFirstFrame(amr_file, amr_frame, &std_frame_size, &std_frame_header);
+ 
+    // 解码一个AMR音频帧成WAV数据
+    Decoder_Interface_Decode(destate, amr_frame, wav_frame, 0);
+    frame_counter++;
+    fwrite(wav_frame, sizeof(short), WAV_FRAME_SIZE, wav_file);
+ 
+    // 逐帧解码AMR，写入WAV
+    while(1) {
+        memset(amr_frame, 0, sizeof(amr_frame));
+        memset(wav_frame, 0, sizeof(wav_frame));
+        if (!readOrdinaryFrame(amr_file, amr_frame, std_frame_size, std_frame_header)) break;
+        // 解码一个AMR音频帧成WAV数据，参数为 8k 16bit 单声道
+        Decoder_Interface_Decode(destate, amr_frame, wav_frame, 0);
+        frame_counter++;
+        fwrite(wav_frame, sizeof(short), WAV_FRAME_SIZE, wav_file);
+    }
+ 
+    Decoder_Interface_exit(destate);    // ?
+ 
+    fclose(wav_file);
+ 
+    // 重写WAV文件头
+    wav_file = fopen(WAV_filename, "r+");
+    WAVFileHeaderWriter(wav_file, frame_counter);
+    fclose(wav_file);
+ 
+    return frame_counter;
+}

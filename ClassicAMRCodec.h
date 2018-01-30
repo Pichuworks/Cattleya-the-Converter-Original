@@ -88,6 +88,6 @@ typedef struct {
     WAVBlock wave;
 } WAVChunk; // FMTBLOCK
 
-int classicAMR2WAV(const char *pchAMRFileName, const char *pchWAVEFilename);
+int classicAMR2WAV(const char *AMR_file_name, const char *WAV_file_name);
 
 #endif

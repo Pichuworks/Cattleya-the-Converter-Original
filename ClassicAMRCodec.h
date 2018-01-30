@@ -1,3 +1,17 @@
+/*
+    Classic AMR2WAV Converter
+    Codename Cattleya
+    Developed by Pichu
+    Jan. 18th, '19
+
+    ClassAMR2WAV Decode Header File
+
+    ref: 
+    http://blog.csdn.net/dinggo/article/details/2002298
+    https://www.cnblogs.com/wangguchangqing/p/5957531.html
+
+*/ 
+
 #ifndef CLASSIC_AMR_CODEC_H
 #define CLASSIC_AMR_CODEC_H
 #include <stdio.h>
@@ -8,7 +22,6 @@
 #define PCM_FRAME_SIZE 160
 #define MAX_AMR_FRAME_SIZE 32
 #define AMR_FRAME_COUNT_PER_SECOND 50
-int amrEncodeMode[] = {4750, 5150, 5900, 6700, 7400, 7950, 10200, 12200}; // amr 编码方式
 
 /*
     WAV使用的RIFF CHUNK定义

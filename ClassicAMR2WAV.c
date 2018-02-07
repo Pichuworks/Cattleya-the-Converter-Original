@@ -13,7 +13,6 @@
 */ 
 
 #include "ClassicAMRCodec.h"
-#include "interf_dec.h"
 #include "1.h" 
 #include "2.h"
 

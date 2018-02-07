@@ -17,39 +17,40 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "interf_rom.h"
 
 #define AMR_MAGIC_NUMBER "#!AMR\n"
-#define PCM_FRAME_SIZE 160
+#define WAV_FRAME_SIZE 160
 #define MAX_AMR_FRAME_SIZE 32
 #define AMR_FRAME_COUNT_PER_SECOND 50
 
 /*
-    WAVä½¿ç”¨çš„RIFF CHUNKå®šä¹‰
+    WAVÊ¹ÓÃµÄRIFF CHUNK¶¨Òå
     ref: https://www.cnblogs.com/wangguchangqing/p/5957531.html
     struct chunk {
-        uint32_t id;   // å—æ ‡å¿—
-        uint32_t size; // å—å¤§å°
-        uint8_t data[size]; // å—æ•°æ®
+        uint32_t id;   // ¿é±êÖ¾
+        uint32_t size; // ¿é´óĞ¡
+        uint8_t data[size]; // ¿éÊı¾İ
     };
-    ä¸€ä¸ªWAVæ–‡ä»¶ï¼Œé¦–å…ˆæ˜¯ä¸€ä¸ªRIFF chunkï¼›RIFF chunkåˆåŒ…å«æœ‰Format chunkï¼ŒData chunkä»¥åŠå¯é€‰çš„Fact chunkã€‚
+    Ò»¸öWAVÎÄ¼ş£¬Ê×ÏÈÊÇÒ»¸öRIFF chunk£»RIFF chunkÓÖ°üº¬ÓĞFormat chunk£¬Data chunkÒÔ¼°¿ÉÑ¡µÄFact chunk¡£
 
     RIFF chunk
-    idï¼šFOURCC å€¼ä¸º'R' 'I' 'F' 'F'
-    sizeï¼šå…¶dataå­—æ®µä¸­æ•°æ®çš„å¤§å° å­—èŠ‚æ•°
-    dataï¼šåŒ…å«å…¶ä»–çš„chunk
+    id£ºFOURCC ÖµÎª'R' 'I' 'F' 'F'
+    size£ºÆädata×Ö¶ÎÖĞÊı¾İµÄ´óĞ¡ ×Ö½ÚÊı
+    data£º°üº¬ÆäËûµÄchunk
 
     Format chunk
-    idï¼šFOURCC å€¼ä¸º 'f' 'm' 't' ' '
-    sizeï¼šæ•°æ®å­—æ®µåŒ…å«æ•°æ®çš„å¤§å°ã€‚å¦‚æ— æ‰©å±•å—ï¼Œåˆ™å€¼ä¸º16ï¼›æœ‰æ‰©å±•å—ï¼Œåˆ™å€¼ä¸º= 16 + 2å­—èŠ‚æ‰©å±•å—é•¿åº¦ + æ‰©å±•å—é•¿åº¦æˆ–è€…å€¼ä¸º18ï¼ˆåªæœ‰æ‰©å±•å—çš„é•¿åº¦ä¸º2å­—èŠ‚ï¼Œå€¼ä¸º0ï¼‰
-    dataï¼šå­˜æ”¾éŸ³é¢‘æ ¼å¼ã€å£°é“æ•°ã€é‡‡æ ·ç‡ç­‰ä¿¡æ¯
-    format_tagï¼š2å­—èŠ‚ï¼Œè¡¨ç¤ºéŸ³é¢‘æ•°æ®çš„æ ¼å¼ã€‚å¦‚å€¼ä¸º1ï¼Œè¡¨ç¤ºä½¿ç”¨PCMæ ¼å¼ã€‚
-    channelsï¼š2å­—èŠ‚ï¼Œå£°é“æ•°ã€‚å€¼ä¸º1åˆ™ä¸ºå•å£°é“ï¼Œä¸º2åˆ™æ˜¯åŒå£°é“ã€‚
-    samples_per_secï¼šé‡‡æ ·ç‡ï¼Œä¸»è¦æœ‰22.05KHzï¼Œ44.1kHzå’Œ48KHzã€‚
-    avg_bytes_per_secï¼šéŸ³é¢‘çš„ç ç‡ï¼Œæ¯ç§’æ’­æ”¾çš„å­—èŠ‚æ•°ã€‚samples_per_sec * channels * bits_per_sample / 8ï¼Œå¯ä»¥ä¼°ç®—å‡ºä½¿ç”¨ç¼“å†²åŒºçš„å¤§å°
-    block_alignï¼šæ•°æ®å—å¯¹é½å•ä½ï¼Œä¸€æ¬¡é‡‡æ ·çš„å¤§å°ï¼Œå€¼ä¸ºå£°é“æ•° * é‡åŒ–ä½æ•° / 8ï¼Œåœ¨æ’­æ”¾æ—¶éœ€è¦ä¸€æ¬¡å¤„ç†å¤šä¸ªè¯¥å€¼å¤§å°çš„å­—èŠ‚æ•°æ®ã€‚
-    bits_per_sampleï¼šéŸ³é¢‘sampleçš„é‡åŒ–ä½æ•°ï¼Œæœ‰16ä½ï¼Œ24ä½å’Œ32ä½ç­‰ã€‚
-    cbSizeï¼šæ‰©å±•åŒºçš„é•¿åº¦
-    æ‰©å±•å—å†…å®¹ï¼š22å­—èŠ‚ï¼Œå…·ä½“ä»‹ç»ï¼Œåé¢è¡¥å……ã€‚
+    id£ºFOURCC ÖµÎª 'f' 'm' 't' ' '
+    size£ºÊı¾İ×Ö¶Î°üº¬Êı¾İµÄ´óĞ¡¡£ÈçÎŞÀ©Õ¹¿é£¬ÔòÖµÎª16£»ÓĞÀ©Õ¹¿é£¬ÔòÖµÎª= 16 + 2×Ö½ÚÀ©Õ¹¿é³¤¶È + À©Õ¹¿é³¤¶È»òÕßÖµÎª18£¨Ö»ÓĞÀ©Õ¹¿éµÄ³¤¶ÈÎª2×Ö½Ú£¬ÖµÎª0£©
+    data£º´æ·ÅÒôÆµ¸ñÊ½¡¢ÉùµÀÊı¡¢²ÉÑùÂÊµÈĞÅÏ¢
+    format_tag£º2×Ö½Ú£¬±íÊ¾ÒôÆµÊı¾İµÄ¸ñÊ½¡£ÈçÖµÎª1£¬±íÊ¾Ê¹ÓÃPCM¸ñÊ½¡£
+    channels£º2×Ö½Ú£¬ÉùµÀÊı¡£ÖµÎª1ÔòÎªµ¥ÉùµÀ£¬Îª2ÔòÊÇË«ÉùµÀ¡£
+    samples_per_sec£º²ÉÑùÂÊ£¬Ö÷ÒªÓĞ22.05KHz£¬44.1kHzºÍ48KHz¡£
+    avg_bytes_per_sec£ºÒôÆµµÄÂëÂÊ£¬Ã¿Ãë²¥·ÅµÄ×Ö½ÚÊı¡£samples_per_sec * channels * bits_per_sample / 8£¬¿ÉÒÔ¹ÀËã³öÊ¹ÓÃ»º³åÇøµÄ´óĞ¡
+    block_align£ºÊı¾İ¿é¶ÔÆëµ¥Î»£¬Ò»´Î²ÉÑùµÄ´óĞ¡£¬ÖµÎªÉùµÀÊı * Á¿»¯Î»Êı / 8£¬ÔÚ²¥·ÅÊ±ĞèÒªÒ»´Î´¦Àí¶à¸ö¸ÃÖµ´óĞ¡µÄ×Ö½ÚÊı¾İ¡£
+    bits_per_sample£ºÒôÆµsampleµÄÁ¿»¯Î»Êı£¬ÓĞ16Î»£¬24Î»ºÍ32Î»µÈ¡£
+    cbSize£ºÀ©Õ¹ÇøµÄ³¤¶È
+    À©Õ¹¿éÄÚÈİ£º22×Ö½Ú£¬¾ßÌå½éÉÜ£¬ºóÃæ²¹³ä¡£
 */
 
 typedef struct {
@@ -88,6 +89,7 @@ typedef struct {
     WAVBlock wave;
 } WAVChunk; // FMTBLOCK
 
-int classicAMR2WAV(const char *AMR_file_name, const char *WAV_file_name);
+int amrEncodeMode[] = {4750, 5150, 5900, 6700, 7400, 7950, 10200, 12200}; // amr±àÂë·½Ê½
 
+void classicAMR2WAV(const char *AMR_file_name, const char *WAV_file_name);
 #endif

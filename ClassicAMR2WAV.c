@@ -13,18 +13,25 @@
 */ 
 
 #include "ClassicAMRCodec.h"
+#include "interf_dec.h"
+#include "1.h" 
+#include "2.h"
 
 /**
- * å†™ WAV æ–‡ä»¶å¤´
- * @param   wavæ–‡ä»¶ã€intå¸§
+ * Ğ´ WAV ÎÄ¼şÍ·
+ * @param   wavÎÄ¼ş¡¢intÖ¡
  * @return  void
  */
 void WAVFileHeaderWriter(FILE *file_wav, int Frame) {
+	RIFFChunk riff; 
+	ChunkHeader chunk;
+	WAVExtBlock wav_fmt_ext;
+	
     char tag[10] = "";
 
-    // 1. å†™ RIFF chunk å¤´
+    // 1. Ğ´ RIFF chunk Í·
     strcpy(tag, "RIFF");
-    memcpy(riff.riff_ID, tag, 4);                       // å†™ RIFF chunk
+    memcpy(riff.riff_ID, tag, 4);                       // Ğ´ RIFF chunk
     riff.riff_size = 4                                  // WAV
                      + sizeof(ChunkHeader)              // fmt
                      + sizeof(WAVExtBlock)              // WAVEFORMATX
@@ -34,21 +41,21 @@ void WAVFileHeaderWriter(FILE *file_wav, int Frame) {
     memcpy(riff.riff_format, tag, 4);
     fwrite(&riff, 1, sizeof(RIFFChunk), file_wav);
 
-    // 2. å†™ Format chunk
+    // 2. Ğ´ Format chunk
     strcpy(tag, "fmt ");
     memcpy(chunk.chunk_ID, tag, 4);
     chunk.chunk_size = sizeof(WAVExtBlock);
     fwrite(&chunk, 1, sizeof(ChunkHeader), file_wav);
     memset(&wav_fmt_ext, 0, sizeof(WAVExtBlock));
     wav_fmt_ext.format_tag = 1;
-    wav_fmt_ext.channels = 1;         // å•å£°é“
+    wav_fmt_ext.channels = 1;         // µ¥ÉùµÀ
     wav_fmt_ext.samples_per_sec = 8000; // 8khz
     wav_fmt_ext.avg_bytes_per_sec = 16000;
     wav_fmt_ext.block_align = 2;
-    wav_fmt_ext.bits_per_sample = 16; // 16ä½
+    wav_fmt_ext.bits_per_sample = 16; // 16Î»
     fwrite(&wav_fmt_ext, 1, sizeof(WAVExtBlock), file_wav);
 
-    // 3. å†™ data chunk å¤´
+    // 3. Ğ´ data chunk Í·
     strcpy(tag, "data");
     memcpy(chunk.chunk_ID, tag, 4);
     chunk.chunk_size = Frame * 160 * sizeof(short);
@@ -56,7 +63,7 @@ void WAVFileHeaderWriter(FILE *file_wav, int Frame) {
 }
 
 /**
- * å››èˆäº”å…¥
+ * ËÄÉáÎåÈë
  * @param   double X
  * @return  int X
  */
@@ -65,7 +72,7 @@ const int makeInt(const double x) {
 }
 
 /**
- * è®¡ç®—å½“å‰å¸§å¤§å°
+ * ¼ÆËãµ±Ç°Ö¡´óĞ¡
  * @param   frame_header
  * @return  frame_size
  */
@@ -73,14 +80,14 @@ int calcFrameSize(unsigned char frame_header) {
     int mode, frame_size;
     int tmp = 0;
 
-    // ç¼–ç æ–¹å¼ç¼–å· = å¸§å¤´çš„3-6ä½
+    // ±àÂë·½Ê½±àºÅ = Ö¡Í·µÄ3-6Î»
     frame_header &= 0x78; // 0111-1000
     frame_header >>= 3;
  
     mode = amrEncodeMode[frame_header];
  
-    // è®¡ç®—amréŸ³é¢‘æ•°æ®å¸§å¤§å°
-    // åŸç†: amr ä¸€å¸§å¯¹åº”20msï¼Œé‚£ä¹ˆä¸€ç§’æœ‰50å¸§çš„éŸ³é¢‘æ•°æ®
+    // ¼ÆËãamrÒôÆµÊı¾İÖ¡´óĞ¡
+    // Ô­Àí: amrÒ»Ö¡¶ÔÓ¦20ms£¬ÄÇÃ´Ò»ÃëÓĞ50Ö¡µÄÒôÆµÊı¾İ
     tmp = (double)(((double) mode / (double) AMR_FRAME_COUNT_PER_SECOND) / (double) 8);
     tmp = makeInt(tmp);
     frame_size = makeInt((double)tmp + 0.5);
@@ -88,22 +95,22 @@ int calcFrameSize(unsigned char frame_header) {
 }
 
 /**
- * è¯»é¦–å¸§ä½œä¸ºå‚è€ƒå¸§
- * @param   amræ–‡ä»¶ï¼Œå¯¹åº”çš„bufferï¼Œå¸§å¤§å°ï¼Œå¸§å¤´
+ * ¶ÁÊ×Ö¡×÷Îª²Î¿¼Ö¡
+ * @param   amrÎÄ¼ş£¬¶ÔÓ¦µÄbuffer£¬Ö¡´óĞ¡£¬Ö¡Í·
  * @return  0 for FALSE, 1 for TRUE
  */
 int readFirstFrame(FILE *file_amr, unsigned char frame_buffer[], int *std_frame_size, unsigned char *std_frame_header) {
     // Init
     memset(frame_buffer, 0, sizeof(frame_buffer));
  
-    // è¯»å¸§å¤´
+    // ¶ÁÖ¡Í·
     fread(std_frame_header, 1, sizeof(unsigned char), file_amr);
     if (feof(file_amr)) return 0;
  
-    // æ ¹æ®å¸§å¤´è®¡ç®—å¸§å¤§å°
+    // ¸ù¾İÖ¡Í·¼ÆËãÖ¡´óĞ¡
     *std_frame_size = calcFrameSize(*std_frame_header);
  
-    // è¯»é¦–å¸§æ•°æ®
+    // ¶ÁÊ×Ö¡Êı¾İ
     frame_buffer[0] = *std_frame_header;
     fread(&(frame_buffer[1]), 1, (*std_frame_size-1)*sizeof(unsigned char), file_amr);
     if (feof(file_amr)) return 0;
@@ -112,8 +119,8 @@ int readFirstFrame(FILE *file_amr, unsigned char frame_buffer[], int *std_frame_
 }
 
 /**
- * è¯»AMRå¸§
- * @param   amræ–‡ä»¶ï¼Œå¯¹åº”çš„bufferï¼Œå¸§å¤§å°ï¼Œå¸§å¤´
+ * ¶ÁAMRÖ¡
+ * @param   amrÎÄ¼ş£¬¶ÔÓ¦µÄbuffer£¬Ö¡´óĞ¡£¬Ö¡Í·
  * @return  0 for FALSE, 1 for TRUE
  */
 int readOrdinaryFrame(FILE *file_amr, unsigned char frame_buffer[], int std_frame_size, unsigned char std_frame_header) {
@@ -122,14 +129,14 @@ int readOrdinaryFrame(FILE *file_amr, unsigned char frame_buffer[], int std_fram
  
     memset(frame_buffer, 0, sizeof(frame_buffer));
  
-    // ä¸æ ‡å‡†å¸§å¤´å¯¹æ¯”ï¼Œè‹¥ä¸ºåå¸§ï¼Œåˆ™ç»§ç»­è¯»ä¸‹ä¸€ä¸ªå­—èŠ‚è‡³è¯»åˆ°æ ‡å‡†å¸§å¤´
+    // Óë±ê×¼Ö¡Í·¶Ô±È£¬ÈôÎª»µÖ¡£¬Ôò¼ÌĞø¶ÁÏÂÒ»¸ö×Ö½ÚÖÁ¶Áµ½±ê×¼Ö¡Í·
     while(1) {
         bytes = fread(&frame_header, 1, sizeof(unsigned char), file_amr);
         if (feof(file_amr)) return 0;
         if (frame_header == std_frame_header) break;
     }
  
-    // è¯»è¯¥å¸§çš„è¯­éŸ³æ•°æ®
+    // ¶Á¸ÃÖ¡µÄÓïÒôÊı¾İ
     frame_buffer[0] = frame_header;
     bytes = fread(&(frame_buffer[1]), 1, (std_frame_size-1)*sizeof(unsigned char), file_amr);
     if (feof(file_amr)) return 0;
@@ -138,11 +145,11 @@ int readOrdinaryFrame(FILE *file_amr, unsigned char frame_buffer[], int std_fram
 }
 
 /**
- * å°†ç»å…¸AMRè½¬æ¢æˆWAV
- * @param   AMRæ–‡ä»¶åï¼ŒWAVæ–‡ä»¶å
- * @return  å¸§è®¡æ•°
+ * ½«¾­µäAMR×ª»»³ÉWAV_void
+ * @param   AMRÎÄ¼şÃû£¬WAVÎÄ¼şÃû
+ * @return  Ö¡¼ÆÊı_int null_void
  */
-int classicAMR2WAV(const char *AMR_filename, const char *WAV_filename) {
+void classicAMR2WAV(const char *AMR_filename, const char *WAV_filename) {
     FILE *amr_file = NULL;
     FILE *wav_file = NULL;
     char magic[8];
@@ -157,36 +164,37 @@ int classicAMR2WAV(const char *AMR_filename, const char *WAV_filename) {
     amr_file = fopen(AMR_filename, "rb");
     if(amr_file==NULL) return 0;
  
-    // æ£€æŸ¥amræ–‡ä»¶å¤´
+    // ¼ì²éamrÎÄ¼şÍ·
     fread(magic, sizeof(char), strlen(AMR_MAGIC_NUMBER), amr_file);
     if(strncmp(magic, AMR_MAGIC_NUMBER, strlen(AMR_MAGIC_NUMBER))) {
         fclose(amr_file);
         return 0;
     }
  
-    // åˆ›å»ºå¹¶åˆå§‹åŒ–WAVæ–‡ä»¶
+    // ´´½¨²¢³õÊ¼»¯WAVÎÄ¼ş
     wav_file = fopen(WAV_filename, "wb");
     WAVFileHeaderWriter(wav_file, frame_counter);
  
-    // åˆå§‹åŒ–è§£ç å™¨
+    // ³õÊ¼»¯½âÂëÆ÷
     destate = Decoder_Interface_init();             // ?
  
-    // è¯»é¦–å¸§ä½œä¸ºå‚è€ƒå¸§
+    // ¶ÁÊ×Ö¡×÷Îª²Î¿¼Ö¡
     memset(amr_frame, 0, sizeof(amr_frame));
     memset(wav_frame, 0, sizeof(wav_frame));
     readFirstFrame(amr_file, amr_frame, &std_frame_size, &std_frame_header);
  
-    // è§£ç ä¸€ä¸ªAMRéŸ³é¢‘å¸§æˆWAVæ•°æ®
+    // ½âÂëÒ»¸öAMRÒôÆµÖ¡³ÉWAVÊı¾İ
     Decoder_Interface_Decode(destate, amr_frame, wav_frame, 0);
     frame_counter++;
     fwrite(wav_frame, sizeof(short), WAV_FRAME_SIZE, wav_file);
  
-    // é€å¸§è§£ç AMRï¼Œå†™å…¥WAV
+    // ÖğÖ¡½âÂëAMR£¬Ğ´ÈëWAV
     while(1) {
         memset(amr_frame, 0, sizeof(amr_frame));
         memset(wav_frame, 0, sizeof(wav_frame));
-        if (!readOrdinaryFrame(amr_file, amr_frame, std_frame_size, std_frame_header)) break;
-        // è§£ç ä¸€ä¸ªAMRéŸ³é¢‘å¸§æˆWAVæ•°æ®ï¼Œå‚æ•°ä¸º 8k 16bit å•å£°é“
+        if (!readOrdinaryFrame(amr_file, amr_frame, std_frame_size, std_frame_header))
+            break;
+        // ½âÂëÒ»¸öAMRÒôÆµÖ¡³ÉWAVÊı¾İ£¬²ÎÊıÎª 8k 16bit µ¥ÉùµÀ
         Decoder_Interface_Decode(destate, amr_frame, wav_frame, 0);
         frame_counter++;
         fwrite(wav_frame, sizeof(short), WAV_FRAME_SIZE, wav_file);
@@ -196,10 +204,18 @@ int classicAMR2WAV(const char *AMR_filename, const char *WAV_filename) {
  
     fclose(wav_file);
  
-    // é‡å†™WAVæ–‡ä»¶å¤´
+    // ÖØĞ´WAVÎÄ¼şÍ·
     wav_file = fopen(WAV_filename, "r+");
     WAVFileHeaderWriter(wav_file, frame_counter);
     fclose(wav_file);
  
-    return frame_counter;
+    // return frame_counter;
+    return;
+}
+
+int main() {
+    const char AMR_filename[] = "test.amr";
+    const char WAV_filename[] = "test.wav";
+    classicAMR2WAV(AMR_filename, WAV_filename);
+    return 0;
 }

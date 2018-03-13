@@ -8,7 +8,13 @@
 
 ---
 
-## Now Question:
+## 第一阶段开发完成:
+
+实现了在win/linux下进行amr_nb/silk v3 to wav的操作
+
+---
+
+## Old Question:
 
 一个问题：现在有两种Classic AMR模式：一种是AMR-NB，一种是AMR-WB；而且微信中所使用的AMR更像是SLIK-V3，那么应该怎么写好呢？
 
